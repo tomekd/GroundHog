@@ -33,6 +33,9 @@ import gzip
 import time
 import signal
 
+import logging
+logger = logging.getLogger(__name__)
+
 from groundhog.utils import print_mem, print_time
 
 
@@ -283,6 +286,11 @@ class MainLoop(object):
                last_cost > .1*self.state['minerr'] and
                (time.time() - start_time)/60. < self.state['timeStop'] and
                self.state['lr'] > self.state['minlr']):
+
+            logger.debug("Step {}".format(self.step))
+            for param in self.model.params:
+                logger.debug(param.get_value().sum())
+
             if self.step > 0 and (time.time() - self.save_time)/60. >= self.state['saveFreq']:
                 self.save()
                 if self.channel is not None:
