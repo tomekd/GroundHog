@@ -287,7 +287,7 @@ class RecurrentLayerWithSearch(Layer):
                 name="D_%s"%self.name)
         self.params.append(self.D_pe)
         self.params_grad_scale = [self.grad_scale for x in self.params]
-       
+
     def set_decoding_layers(self, c_inputer, c_reseter, c_updater):
         self.c_inputer = c_inputer
         self.c_reseter = c_reseter
@@ -461,10 +461,10 @@ class RecurrentLayerWithSearch(Layer):
 
         p_from_c =  utils.dot(c, self.A_cp).reshape(
                 (c.shape[0], c.shape[1], self.n_hids))
-        
+
         if mask:
             sequences = [state_below, mask, updater_below, reseter_below]
-            non_sequences = [c, c_mask, p_from_c] 
+            non_sequences = [c, c_mask, p_from_c]
             #              seqs    | out |  non_seqs
             fn = lambda x, m, g, r,   h,   c1, cm, pc : self.step_fprop(x, h, mask=m,
                     gater_below=g, reseter_below=r,
@@ -966,6 +966,7 @@ class Decoder(EncoderDecoderBase):
             step_num=None,
             mode=EVALUATION,
             given_init_states=None,
+            approx_embeddings=None,
             T=1):
         """Create the computational graph of the RNN Decoder.
 
@@ -1027,7 +1028,8 @@ class Decoder(EncoderDecoderBase):
         #   (n_words, rank_n_approx),
         # Shape if mode != evaluation
         #   (n_samples, rank_n_approx)
-        approx_embeddings = self.approx_embedder(y)
+        if not approx_embeddings:
+            approx_embeddings = self.approx_embedder(y)
 
         # Low rank embeddings are projected to contribute
         # to input, reset and update signals.
@@ -1100,7 +1102,7 @@ class Decoder(EncoderDecoderBase):
             if self.state['search']:
                 if self.compute_alignment:
                     #This implicitly wraps each element of result.out with a Layer to keep track of the parameters.
-                    #It is equivalent to h=result[0], ctx=result[1] etc. 
+                    #It is equivalent to h=result[0], ctx=result[1] etc.
                     h, ctx, alignment = result
                     if mode == Decoder.EVALUATION:
                         alignment = alignment.out
@@ -1350,8 +1352,12 @@ class RNNEncoderDecoder(object):
         self.decoder.create_layers()
         logger.debug("Build log-likelihood computation graph")
         self.predictions, self.alignment = self.decoder.build_decoder(
-                c=Concatenate(axis=2)(*training_c_components), c_mask=self.x_mask,
-                y=self.y, y_mask=self.y_mask)
+                c=Concatenate(axis=2)(*training_c_components),
+                c_mask=self.x_mask,
+                y=self.y,
+                y_mask=self.y_mask,
+                approx_embeddings=self.encoder.approx_embedder(self.x)
+        )
 
         # Annotation for sampling
         sampling_c_components = []
